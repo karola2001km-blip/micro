@@ -35,7 +35,7 @@ services:
       timeout: 3s
       retries: 20
   user-migrate:
-    build: services/user-service
+    build: ..
     image: user-service:0.1.0
     command: ["alembic", "upgrade", "head"]
     environment: &user-env
@@ -48,7 +48,7 @@ services:
     depends_on:
       user-postgres: {condition: service_healthy}
   user-service:
-    build: services/user-service
+    build: ..
     image: user-service:0.1.0
     environment: *user-env
     ports: ["127.0.0.1:8082:8082"]
@@ -56,7 +56,7 @@ services:
       user-migrate: {condition: service_completed_successfully}
       consul: {condition: service_healthy}
   cart-service:
-    build: services/cart-service
+    build: ../../cart-service
     image: cart-service:0.1.0
     environment:
       REDIS_URL: redis://cart-redis:6379/0

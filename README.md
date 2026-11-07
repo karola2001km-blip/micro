@@ -1,47 +1,47 @@
-# User Service i Cart Service
+# User i Cart — integracja ze sklep-mikroserwisy
 
-Serwisy profili użytkowników i koszyka dla sklepu mikroserwisowego. Implementacja w Pythonie 3.12 z FastAPI, zgodna z podziałem odpowiedzialności opisanym w architekturze projektu.
+Kod dopasowany do przesłanego szkieletu gałęzi `develop`. Wszystkie pliki przeznaczone do wspólnego repozytorium znajdują się w dwóch katalogach:
 
-| Serwis | Zakres | Baza | Port |
-| --- | --- | --- | --- |
-| User | Profile klientów i adresy dostawy | PostgreSQL | 8082 |
-| Cart | Pozycje koszyka, ilości, ceny i dostępność | Redis | 8085 |
-
-## Uruchomienie
-
-Wymagany Docker z Compose.
-
-```sh
-cp .env.example .env
-# Ustaw DB_PASSWORD w .env.
-docker compose up --build -d
+```text
+services/
+├── user-service/
+│   ├── app/
+│   ├── tests/
+│   ├── migrations/
+│   ├── k8s/
+│   ├── postman/
+│   ├── docs/
+│   ├── dev/
+│   ├── Dockerfile
+│   ├── .env.example
+│   └── README.md
+└── cart-service/
+    ├── app/
+    ├── tests/
+    ├── k8s/
+    ├── postman/
+    ├── docs/
+    ├── Dockerfile
+    ├── .env.example
+    └── README.md
 ```
 
-Compose uruchamia PostgreSQL, Redis, Consul, migrację bazy i obie aplikacje. User startuje po zakończeniu migracji. Porty lokalne są związane z interfejsem loopback.
+- [Paczka do wspólnego repo](paczki/user-cart-do-wspolnego-repo.zip) — zawiera tylko folder `services` z dwoma serwisami.
+- [Instrukcja przeniesienia](JAK-PRZENIESC.md).
+- [User Service](services/user-service/README.md).
+- [Cart Service](services/cart-service/README.md).
+- [Opis rozwiązania do prezentacji](services/user-service/docs/PREZENTACJA-USER-CART.md).
 
-Sprawdzenie gotowości:
+## Zmiany względem osobnej wersji
 
-```sh
-curl --fail http://localhost:8082/health/ready
-curl --fail http://localhost:8085/health/ready
-```
+Manifesty aplikacji są teraz w `services/<usługa>/k8s/`, kolekcje Postman w `services/<usługa>/postman/`, a dokumentacja w `services/<usługa>/docs/`. Każda usługa ma własny README, plik wersji Pythona i `.env.example` bez wartości.
 
-Swagger jest dostępny pod `/docs`, a OpenAPI pod `/openapi.json` na porcie danej usługi.
+Manifesty wskazują namespace `shop`. Lokalne Compose znajduje się w `services/user-service/dev/`; uruchamia oba serwisy i ich infrastrukturę deweloperską. Propozycje polityk sieciowych są opisane w dokumentacji do uzgodnienia z architektem, ponieważ wspólne NetworkPolicy należą do `deploy/k8s/`.
 
-## Integracja
+W dopasowanej kopii szkieletu nie zmieniono głównego README, CODEOWNERS, wspólnych folderów `deploy`, `docs`, `postman`, frontendu ani katalogów pozostałych usług.
 
-User obsługuje dane profilu. Konta, hasła i JWT należą do Auth. Cart pobiera cenę z Product i sprawdza stan w Inventory. Rezerwację towaru oraz utworzenie zamówienia obsługuje Order.
+## Sprawdzenie
 
-Dodanie produktu wymaga działającego Product zarejestrowanego w Consulu. Brak ceny powoduje odpowiedź 503. Przy niedostępnym Inventory zapis jest dopuszczalny z polem `inventoryChecked:false`. Koszyk wygasa po siedmiu dniach od ostatniej zmiany.
+Po przeniesieniu uruchomiono 49 testów pytest, zbudowano oba obrazy Docker i sprawdzono start Compose. Obie usługi przechodzą health checki Consula. Newman wykonał 7 żądań User i 5 żądań Cart, wszystkie asercje przeszły. Product i Inventory podczas sprawdzania Cart były atrapami.
 
-Tożsamość przekazuje Gateway przez `X-User-Id` i `X-User-Roles`. Bezpośrednie ustawianie tych nagłówków jest przeznaczone do testów lokalnych. W klastrze usługi wymagają izolacji sieciowej i dostępu przez zaufane komponenty.
-
-## Dokumentacja
-
-- [Struktura i działanie kodu](docs/OPIS-KODU.md)
-- [Uruchomienie i testy](docs/URUCHOMIENIE.md)
-- [Kontrakty API](docs/KONTRAKTY.md)
-- [Zakres prezentacji](docs/PREZENTACJA.md)
-- [Wyniki weryfikacji](docs/WERYFIKACJA.md)
-
-Kolekcje Postman znajdują się w `postman/`, a manifesty Kubernetes w `deploy/k8s/`. Opis konfiguracji klastra i wymaganych sekretów zawiera instrukcja uruchomienia.
+Wdrożenie Kubernetes, konfiguracja wspólnej infrastruktury i integracja z rzeczywistymi usługami zespołu pozostają oddzielnym etapem.

@@ -1,14 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cart-service
+  name: user-service
+  namespace: shop
 spec:
   replicas: 1
   selector:
-    matchLabels: {app: cart-service}
+    matchLabels: {app: user-service}
   template:
     metadata:
-      labels: {app: cart-service}
+      labels: {app: user-service}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -16,10 +17,10 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
       containers:
-        - name: cart-service
-          image: cart-service:0.1.0
+        - name: user-service
+          image: user-service:0.1.0
           imagePullPolicy: IfNotPresent
-          ports: [{containerPort: 8085}]
+          ports: [{containerPort: 8082}]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}
@@ -30,28 +31,35 @@ spec:
             - name: INSTANCE_ID
               valueFrom:
                 fieldRef: {fieldPath: metadata.name}
-            - name: REDIS_URL
+            - name: DB_HOST
+              value: user-postgres
+            - name: DB_NAME
+              value: user_db
+            - name: DB_USER
+              value: user_service
+            - name: DB_PASSWORD
               valueFrom:
-                secretKeyRef: {name: cart-redis-secret, key: url}
+                secretKeyRef: {name: user-db-secret, key: password}
             - name: CONSUL_URL
               value: http://consul:8500
           resources:
             requests: {cpu: 100m, memory: 128Mi}
             limits: {cpu: '1', memory: 768Mi}
           startupProbe:
-            httpGet: {path: /health/live, port: 8085}
+            httpGet: {path: /health/live, port: 8082}
             periodSeconds: 5
             failureThreshold: 60
           livenessProbe:
-            httpGet: {path: /health/live, port: 8085}
+            httpGet: {path: /health/live, port: 8082}
           readinessProbe:
-            httpGet: {path: /health/ready, port: 8085}
+            httpGet: {path: /health/ready, port: 8082}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: cart-service
+  name: user-service
+  namespace: shop
 spec:
   type: ClusterIP
-  selector: {app: cart-service}
-  ports: [{port: 8085, targetPort: 8085}]
+  selector: {app: user-service}
+  ports: [{port: 8082, targetPort: 8082}]

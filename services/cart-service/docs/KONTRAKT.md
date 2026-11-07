@@ -14,32 +14,6 @@ Błąd ma postać:
 {"status":409,"error":"CONFLICT","message":"Brak wystarczającej liczby sztuk","requestId":"demo-1"}
 ```
 
-## User :8082
-
-| Metoda i ścieżka | Uprawnienie | Sukces |
-| --- | --- | --- |
-| POST `/users` | SERVICE (Auth) | 201, profil |
-| GET `/users/me` | Użytkownik z poprawnym ID | 200, własny profil |
-| PUT `/users/me` | Użytkownik z poprawnym ID | 200, zmieniony profil |
-| GET `/users/{id}` | ADMIN lub SERVICE | 200, profil |
-| GET `/users/me/addresses` | Właściciel | 200, lista adresów |
-| POST `/users/me/addresses` | Właściciel | 201, nowy adres |
-| DELETE `/users/me/addresses/{id}` | Właściciel | 204 |
-
-Auth nadaje ID i wysyła:
-
-```json
-{"id":"11111111-1111-4111-8111-111111111111","firstName":"Anna","lastName":"Nowak","email":"anna@example.com"}
-```
-
-Profil ma takie same pola. PUT przyjmuje tylko `firstName` i `lastName`. Adres wejściowy:
-
-```json
-{"street":"Lipowa 1/2","city":"Warszawa","postalCode":"00-001","countryCode":"PL"}
-```
-
-Odpowiedź adresu dodaje `id`. `street` mieści ulicę, budynek i mieszkanie w jednym polu. Adres nie jest weryfikowany w zewnętrznym rejestrze. Cudzy lub nieistniejący adres przy usuwaniu daje 404. Profil można utworzyć tylko raz: powtórzenie ID lub e-maila daje 409. Auth musi obsłużyć niejednoznaczny wynik po timeout: ponowienie zapisu nie jest automatycznie sukcesem. Przepływ kompensacji przy rejestracji jest odpowiedzialnością Auth.
-
 ## Cart :8085
 
 | Metoda i ścieżka | Znaczenie | Sukces |
@@ -76,6 +50,7 @@ Product rejestruje się jako `product-service`, Inventory jako `inventory-servic
 
 - GET `/products/{id}` → 200, co najmniej `{"name":"Książka","price":"19.99"}`. `price` jest napisem z dokładnie dwoma miejscami po kropce; nie liczbą JSON. Brak produktu: 404.
 - GET `/inventory/{id}` → 200, co najmniej `{"available":10}`. `available` oznacza liczbę sztuk możliwych do sprzedaży po odjęciu rezerwacji. Brak wiarygodnego stanu, również odpowiedź 404, oznacza `inventoryChecked:false`. Jeśli brak rekordu ma oznaczać zero sztuk, Inventory powinno zwrócić `{"available":0}`.
+
 
 ## Consul i odporność
 

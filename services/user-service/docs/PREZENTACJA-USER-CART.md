@@ -68,6 +68,6 @@ Demonstracja koszyka wymaga Product zgodnego z kontraktem. W testach zależnośc
 
 ## Stan weryfikacji
 
-Sprawdzono 49 różnych testów: 17 User i 32 Cart. Obie aplikacje uruchomiono przez Compose z PostgreSQL, Redisem i Consulem. Potwierdzono także ponowne wykonanie migracji oraz dostępność profilu po restarcie User.
+Sprawdzono 49 różnych testów: 17 User i 32 Cart. Kolekcje Postman wykonano przez Newman: 12 żądań i asercji bez błędów. Obie aplikacje uruchomiono przez Compose z PostgreSQL, Redisem i Consulem. Potwierdzono także ponowne wykonanie migracji oraz dostępność profilu po restarcie User.
 
 Wdrożenie w docelowym Kubernetesie, egzekwowanie NetworkPolicy i integracja z rzeczywistymi usługami zespołu pozostają do wykonania. Szczegóły zawiera [raport weryfikacji](WERYFIKACJA.md).
