@@ -1,6 +1,6 @@
 # Kontrakty integracyjne
 
-Ścieżki, porty i odpowiedzialności pochodzą z architektury. Szczegółowe pola JSON poniżej są propozycją implementacji: dokument nie definiował ich w całości. Uzgodnij je z zespołem przed podłączeniem usług. Wszystkie identyfikatory użytkowników, produktów i adresów są UUID. Waluta w tej wersji to PLN.
+Ścieżki, porty i odpowiedzialności pochodzą z architektury. Poniższe pola JSON uzupełniają kontrakty opisane w dokumencie architektury. Wymagają potwierdzenia przy integracji z pozostałymi usługami. Wszystkie identyfikatory użytkowników, produktów i adresów są UUID. Waluta w tej wersji to PLN.
 
 ## Wspólne nagłówki i błędy
 
@@ -38,7 +38,7 @@ Profil ma takie same pola. PUT przyjmuje tylko `firstName` i `lastName`. Adres w
 {"street":"Lipowa 1/2","city":"Warszawa","postalCode":"00-001","countryCode":"PL"}
 ```
 
-Odpowiedź adresu dodaje `id`. `street` mieści ulicę, budynek i mieszkanie w jednym polu. Nie sprawdzamy zewnętrznie istnienia adresu. Cudzy lub nieistniejący adres przy usuwaniu daje 404. Profil można utworzyć tylko raz: powtórzenie ID lub e-maila daje 409. Auth musi obsłużyć niejednoznaczny wynik po timeout: ponowienie zapisu nie jest automatycznie sukcesem. Przepływ kompensacji przy rejestracji jest odpowiedzialnością Auth.
+Odpowiedź adresu dodaje `id`. `street` mieści ulicę, budynek i mieszkanie w jednym polu. Adres nie jest weryfikowany w zewnętrznym rejestrze. Cudzy lub nieistniejący adres przy usuwaniu daje 404. Profil można utworzyć tylko raz: powtórzenie ID lub e-maila daje 409. Auth musi obsłużyć niejednoznaczny wynik po timeout: ponowienie zapisu nie jest automatycznie sukcesem. Przepływ kompensacji przy rejestracji jest odpowiedzialnością Auth.
 
 ## Cart :8085
 
@@ -51,7 +51,7 @@ Odpowiedź adresu dodaje `id`. `street` mieści ulicę, budynek i mieszkanie w j
 | DELETE `/cart/{userId}` | Czyści koszyk, tylko SERVICE (Order) | 204 |
 
 POST: `{"productId":"22222222-2222-4222-8222-222222222222","quantity":2}`.
-PATCH: `{"quantity":1}`. Ilość musi być całkowita: 1–999. Cenę pobieramy ponownie przy POST i PATCH. Ilość 0 jest błędem 400 — do usuwania służy DELETE.
+PATCH: `{"quantity":1}`. Ilość musi być całkowita: 1–999. Cena jest pobierana ponownie przy POST i PATCH. Ilość 0 jest błędem 400 — do usuwania służy DELETE.
 
 ```json
 {
@@ -75,11 +75,11 @@ POST i PATCH dodają pole `inventoryChecked`. GET zwraca zapisane ceny bez wywo�
 Product rejestruje się jako `product-service`, Inventory jako `inventory-service`.
 
 - GET `/products/{id}` → 200, co najmniej `{"name":"Książka","price":"19.99"}`. `price` jest napisem z dokładnie dwoma miejscami po kropce; nie liczbą JSON. Brak produktu: 404.
-- GET `/inventory/{id}` → 200, co najmniej `{"available":10}`. `available` oznacza liczbę sztuk możliwych do sprzedaży po odjęciu rezerwacji. Brak wiarygodnego stanu (również 404) traktujemy jako niesprawdzone Inventory, zgodnie z dopuszczonym fallbackiem. Jeśli brak rekordu ma oznaczać zero sztuk, Inventory powinno zwrócić `{"available":0}`.
+- GET `/inventory/{id}` → 200, co najmniej `{"available":10}`. `available` oznacza liczbę sztuk możliwych do sprzedaży po odjęciu rezerwacji. Brak wiarygodnego stanu, również odpowiedź 404, oznacza `inventoryChecked:false`. Jeśli brak rekordu ma oznaczać zero sztuk, Inventory powinno zwrócić `{"available":0}`.
 
 ## Consul i odporność
 
-Obie aplikacje FastAPI rejestrują się przez API agenta Consul. Nazwy: `user-service`, `cart-service`; każda instancja ma własne ID i adres dostępny dla Consula oraz innych usług. Nie ustawiaj adresu loopback w klastrze. Cart pobiera tylko zdrowe instancje, cache 10 s, round robin. User nie ma połączeń wychodzących do usług biznesowych.
+Obie aplikacje FastAPI rejestrują się przez API agenta Consul. Nazwy: `user-service`, `cart-service`; każda instancja ma własne ID i adres dostępny dla Consula oraz innych usług. Adres rejestracji w klastrze musi być osiągalny z Consula i innych podów; loopback nie spełnia tego warunku. Cart pobiera tylko zdrowe instancje, cache 10 s, round robin. User nie ma połączeń wychodzących do usług biznesowych.
 
 GET do Product i Inventory: timeout 2 s dla każdej próby HTTP, pierwsze wywołanie + maksymalnie dwa ponowienia, odstępy 100 i 200 ms. Wyszukanie w Consulu ma osobny limit 2 s. Zatem całe wywołanie może trwać dłużej niż 2 s. Circuit breaker w Pythonie: po co najmniej 10 wywołaniach sprawdza ostatnie 10 wyników; co najmniej 5 błędów otwiera obwód na 30 s. Po przerwie przepuszcza jedną próbę half-open. Sukces zamyka obwód, błąd otwiera go ponownie. 404 produktu nie jest awarią i nie podlega ponowieniom.
 
@@ -87,11 +87,11 @@ GET do Product i Inventory: timeout 2 s dla każdej próby HTTP, pierwsze wywoł
 
 - UUID i nazwy pól powyżej; sposób synchronizacji zmiany e-maila z Auth.
 - Format ceny Product, pole `available` Inventory i polityka finalnej ceny w Order.
-- Order pobiera `/cart` z ID klienta i SERVICE; po opłaceniu woła wewnętrzny DELETE. Obecny kontrakt usuwa cały bieżący koszyk — jeśli podczas zakupu użytkownik dopisze nowe pozycje, też zostaną usunięte. Usunięcie tylko zakupionej migawki wymaga wspólnego rozszerzenia kontraktu (wersji koszyka), nie jest udawane w tej implementacji.
+- Order pobiera `/cart` z ID klienta i SERVICE; po opłaceniu woła wewnętrzny DELETE. Obecny kontrakt usuwa cały bieżący koszyk — jeśli podczas zakupu użytkownik dopisze nowe pozycje, też zostaną usunięte. Usunięcie tylko zakupionej migawki wymaga wspólnego rozszerzenia kontraktu (wersji koszyka). Obecna wersja nie obsługuje wersjonowania koszyka.
 - Dostępność Consula, etykiety podów, DNS baz, sekrety i egzekwowanie NetworkPolicy przez CNI.
 - Gateway kieruje `/api/v1/users/...` i `/api/v1/cart/...` po usunięciu `/api/v1`. Nie wystawia POST `/users` ani DELETE `/cart/{userId}` klientowi. Może udostępnić GET `/users/{id}` tylko ADMIN.
-- Consul KV, tracing i metryki są osobnymi rozszerzeniami. Nie dodano ich pozornej implementacji.
+- Consul KV, tracing i metryki są osobnymi rozszerzeniami. Nie wchodzą w zakres bieżącej implementacji.
 
 ## Technologia tej implementacji
 
-User i Cart: Python 3.12 + FastAPI. User używa SQLAlchemy, psycopg i migracji Alembic; Cart — asynchronicznego klienta redis. Uzasadnienie wyboru do tabeli zespołu: jeden język dla obu usług, automatyczne OpenAPI i walidacja Pydantic, zachowane kontrakty REST i niezależność baz. Obie usługi wystawiają `/docs` oraz `/openapi.json`.
+User i Cart: Python 3.12 + FastAPI. User używa SQLAlchemy, psycopg i migracji Alembic; Cart — asynchronicznego klienta redis. Uzasadnienie wyboru technologii: jeden język dla obu usług, automatyczne OpenAPI i walidacja Pydantic, zachowane kontrakty REST i niezależność baz. Obie usługi wystawiają `/docs` oraz `/openapi.json`.

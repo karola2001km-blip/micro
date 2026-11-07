@@ -24,7 +24,7 @@ W testach automatycznych Product, Inventory i Consul korzystają z transportu te
 
 Naprawiono lokalny problem Consula za proxy: nazwy wewnętrznych serwisów Compose zostały dopisane do NO_PROXY, aby health checki nie trafiały do proxy internetowego. Weryfikacja TLS oraz hashy pakietów pozostała włączona. Certyfikat proxy przekazano do budowy obrazów jako BuildKit secret.
 
-Środowisko: Python 3.12; FastAPI 0.115.12, Pydantic 2.11.7, SQLAlchemy 2.0.41, Alembic 1.16.2, redis 6.2.0 i httpx 0.28.1. W User pozostaje jedno ostrzeżenie DeprecationWarning wewnątrz biblioteki TestClient dotyczące aliasu AnyIO; nie powoduje błędów testów i nie zostało ukryte filtrem.
+Środowisko: Python 3.12; FastAPI 0.115.12, Pydantic 2.11.7, SQLAlchemy 2.0.41, Alembic 1.16.2, redis 6.2.0 i httpx 0.28.1. TestClient zgłasza jedno ostrzeżenie DeprecationWarning dotyczące aliasu AnyIO. Nie wpływa ono na wynik testów.
 
 ## Granice weryfikacji
 

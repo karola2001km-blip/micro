@@ -1,50 +1,47 @@
-# User Service i Cart Service w Pythonie
+# User Service i Cart Service
 
-Twoja część sklepu z dokumentu „Architektura sklepu mikroserwisowego” (0.1): dwa niezależne serwisy **Python 3.12 + FastAPI**. User korzysta z PostgreSQL, Cart z Redisa. Zachowano biznesowe ścieżki API, pola JSON i kody odpowiedzi poprzedniej wersji.
+Serwisy profili użytkowników i koszyka dla sklepu mikroserwisowego. Implementacja w Pythonie 3.12 z FastAPI, zgodna z podziałem odpowiedzialności opisanym w architekturze projektu.
 
-| Serwis | Odpowiedzialność | Technologie | Port |
+| Serwis | Zakres | Baza | Port |
 | --- | --- | --- | --- |
-| User | Profile i adresy dostawy; bez haseł i logowania | FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL | 8082 |
-| Cart | Pozycje i ilości, aktualna cena z Product, sprawdzenie Inventory, TTL 7 dni | FastAPI, Pydantic, httpx, Redis | 8085 |
+| User | Profile klientów i adresy dostawy | PostgreSQL | 8082 |
+| Cart | Pozycje koszyka, ilości, ceny i dostępność | Redis | 8085 |
 
-**Zacznij od [opisu kodu](docs/OPIS-KODU.md)** — wyjaśnia odpowiedzialność każdego pliku i przebieg żądań krok po kroku.
+## Uruchomienie
 
-- [Jak opowiedzieć o projekcie na zajęciach](docs/JAK-OPOWIEDZIEC-O-PROJEKCIE.md)
-- [Uruchomienie i testy](docs/URUCHOMIENIE.md)
-- [Kontrakty API i ustalenia z zespołem](docs/KONTRAKTY.md)
-- [Wyniki weryfikacji](docs/WERYFIKACJA.md)
-
-## Najprostsze uruchomienie: Docker Compose
+Wymagany Docker z Compose.
 
 ```sh
 cp .env.example .env
-# W pliku .env ustaw własne lokalne DB_PASSWORD.
+# Ustaw DB_PASSWORD w .env.
 docker compose up --build -d
+```
+
+Compose uruchamia PostgreSQL, Redis, Consul, migrację bazy i obie aplikacje. User startuje po zakończeniu migracji. Porty lokalne są związane z interfejsem loopback.
+
+Sprawdzenie gotowości:
+
+```sh
 curl --fail http://localhost:8082/health/ready
 curl --fail http://localhost:8085/health/ready
 ```
 
-Compose uruchamia PostgreSQL, Redis, Consul, migrację bazy User oraz obie aplikacje. Migracja kończy się przed startem User. Lokalnie porty są dostępne tylko na loopback.
+Swagger jest dostępny pod `/docs`, a OpenAPI pod `/openapi.json` na porcie danej usługi.
 
-Swagger obu serwisów: `/docs`; OpenAPI JSON: `/openapi.json` na ich portach. Dokumentacja zawiera pola do wpisania nagłówków podczas lokalnych testów. W pełnym sklepie nagłówki tożsamości ustawia Gateway po sprawdzeniu JWT.
+## Integracja
 
-Bez pozostałych usług można testować profile, adresy i pusty koszyk. Dodanie produktu wymaga Product zarejestrowanego w Consulu. Brak Inventory jest dopuszczalny i oznaczony `inventoryChecked:false`; brak Product daje 503. Testy koszyka uruchamiają własne atrapy HTTP tych zależności.
+User obsługuje dane profilu. Konta, hasła i JWT należą do Auth. Cart pobiera cenę z Product i sprawdza stan w Inventory. Rezerwację towaru oraz utworzenie zamówienia obsługuje Order.
 
-## Lokalny przykład profilu
+Dodanie produktu wymaga działającego Product zarejestrowanego w Consulu. Brak ceny powoduje odpowiedź 503. Przy niedostępnym Inventory zapis jest dopuszczalny z polem `inventoryChecked:false`. Koszyk wygasa po siedmiu dniach od ostatniej zmiany.
 
-```sh
-curl --fail-with-body -X POST http://localhost:8082/users \
-  -H 'Content-Type: application/json' -H 'X-User-Roles: SERVICE' \
-  -d '{"id":"11111111-1111-4111-8111-111111111111","firstName":"Anna","lastName":"Nowak","email":"anna@example.com"}'
-curl --fail http://localhost:8082/users/me \
-  -H 'X-User-Id: 11111111-1111-4111-8111-111111111111' \
-  -H 'X-User-Roles: CUSTOMER'
-```
+Tożsamość przekazuje Gateway przez `X-User-Id` i `X-User-Roles`. Bezpośrednie ustawianie tych nagłówków jest przeznaczone do testów lokalnych. W klastrze usługi wymagają izolacji sieciowej i dostępu przez zaufane komponenty.
 
-Te nagłówki symulują zaufany Gateway **wyłącznie lokalnie**. Nie wystawiaj User ani Cart bezpośrednio do Internetu; w Kubernetesie mają tylko ClusterIP i NetworkPolicy.
+## Dokumentacja
 
-## Co oddajesz i ustalasz z zespołem
+- [Struktura i działanie kodu](docs/OPIS-KODU.md)
+- [Uruchomienie i testy](docs/URUCHOMIENIE.md)
+- [Kontrakty API](docs/KONTRAKTY.md)
+- [Zakres prezentacji](docs/PREZENTACJA.md)
+- [Wyniki weryfikacji](docs/WERYFIKACJA.md)
 
-Kod: `services/`, Docker Compose i Dockerfile, manifesty `deploy/k8s/`, kolekcje `postman/`, dokumentacja `docs/`. Auth, Gateway, Product, Inventory, Order i Notification pozostają po stronie innych osób. User nie publikuje `user.registered` — robi to Auth. Cart nie rezerwuje towaru — robi to Order.
-
-W tabeli architektury wpisz dla obu swoich usług: **Python 3.12 + FastAPI**. Uzasadnienie: jeden język, walidacja i automatyczne OpenAPI przy zachowaniu uzgodnionych API i oddzielnych baz. Szczegółowe pola JSON wymagające uzgodnienia są opisane w kontraktach. Oryginalny dokument architektury i plik `micro codex` nie zostały zmienione.
+Kolekcje Postman znajdują się w `postman/`, a manifesty Kubernetes w `deploy/k8s/`. Opis konfiguracji klastra i wymaganych sekretów zawiera instrukcja uruchomienia.

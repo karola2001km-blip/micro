@@ -11,9 +11,9 @@ docker compose up --build -d
 docker compose ps -a
 ```
 
-W PowerShell zamiast `cp` możesz użyć `Copy-Item .env.example .env`.
+Odpowiednik w PowerShell: `Copy-Item .env.example .env`.
 
-`user-migrate` powinien zakończyć się kodem 0 — to poprawne, nie jest serwerem. Pozostałe kontenery powinny działać. Dopiero po wykonaniu migracji uruchamia się User Service. PostgreSQL i Redis zachowują dane w nazwanych wolumenach.
+`user-migrate` powinien zakończyć się kodem 0. Jest to jednorazowy proces migracji. Pozostałe kontenery powinny działać. Dopiero po wykonaniu migracji uruchamia się User Service. PostgreSQL i Redis zachowują dane w nazwanych wolumenach.
 
 Sprawdź:
 
@@ -22,17 +22,17 @@ curl --fail http://localhost:8082/health/ready
 curl --fail http://localhost:8085/health/ready
 ```
 
-Oczekiwany wynik obu wywołań: `{"status":"UP"}`. Swagger działa pod `/docs`, OpenAPI JSON pod `/openapi.json` na portach 8082 i 8085. To wspólne ścieżki FastAPI, zastępujące dawne `/v3/api-docs` i `/docs-json` wersji Java/Node.
+Oczekiwany wynik obu wywołań: `{"status":"UP"}`. Swagger działa pod `/docs`, OpenAPI JSON pod `/openapi.json` na portach 8082 i 8085.
 
-W Swaggerze przy endpointach wpisz `X-User-Roles`, a przy operacjach na własnych danych również `X-User-Id`. Lokalnie symulujesz w ten sposób Gateway. W sklepie rolę i ID ustawia wyłącznie Gateway po weryfikacji JWT.
+Do bezpośrednich wywołań lokalnych wymagane są nagłówki `X-User-Roles`, a przy operacjach na własnych danych również `X-User-Id`. Można je ustawić w Swaggerze. W sklepie rolę i ID ustawia wyłącznie Gateway po weryfikacji JWT.
 
-Przykładowa kolejność demonstracji:
+Podstawowy scenariusz sprawdzenia API:
 
-1. User: POST `/users`, rola SERVICE, ID UUID i dane profilu z przykładu w README.
+1. User: POST `/users`, rola SERVICE, ID UUID i dane profilu zgodne z [kontraktem API](KONTRAKTY.md).
 2. User: GET `/users/me`, to samo ID i rola CUSTOMER.
 3. User: POST `/users/me/addresses`, następnie lista adresów.
 4. Cart: GET `/cart`, to samo ID i rola CUSTOMER.
-5. Po podłączeniu Product dodaj produkt do koszyka i zmień jego ilość.
+5. Po podłączeniu Product: dodanie produktu do koszyka i zmiana ilości.
 
 Product musi rejestrować się w Consulu i zwracać pola opisane w kontraktach. Bez niego dodanie do koszyka zwraca 503; to nie oznacza awarii Redisa ani błędnej instalacji Cart. Testy Cart nie wymagają usług innych osób, bo mają atrapy odpowiedzi HTTP.
 
@@ -46,13 +46,13 @@ Nie dodawaj `-v`, jeśli chcesz zachować dane. `down -v` usuwa wolumeny. Porty 
 
 ## 2. Praca bez budowania obrazów aplikacji
 
-Wymagany Python **3.12** oraz działające PostgreSQL, Redis i opcjonalnie Consul. Możesz uruchomić samą infrastrukturę:
+Wymagany jest Python **3.12**, PostgreSQL i Redis. Rejestrację w Consulu można wyłączyć na czas pracy lokalnej. Polecenie uruchamiające samą infrastrukturę:
 
 ```sh
 docker compose up -d user-postgres cart-redis consul
 ```
 
-Użyj osobnego terminala i środowiska `.venv` dla każdej usługi. Pracuj w istniejącym checkoutcie; zadanie chmurowe już jest izolowane i nie trzeba tworzyć Git worktree.
+Każda usługa korzysta z osobnego terminala i środowiska `.venv`.
 
 ### User Service
 
@@ -84,7 +84,7 @@ alembic upgrade head
 uvicorn app.main:app --host 127.0.0.1 --port 8082 --reload --no-access-log
 ```
 
-`CONSUL_ENABLED=false` ułatwia samodzielną pracę na hoście. Żeby użyć discovery, ustaw `CONSUL_ENABLED=true`, `CONSUL_URL` i `SERVICE_ADDRESS` osiągalny z kontenera Consula. Jego `127.0.0.1` oznacza sam kontener, a nie komputer. Pełny Compose ustawia poprawne nazwy w jednej sieci.
+`CONSUL_ENABLED=false` wyłącza rejestrację na czas pracy lokalnej. Discovery wymaga `CONSUL_ENABLED=true`, adresu `CONSUL_URL` i wartości `SERVICE_ADDRESS` osiągalnej z kontenera Consula. Jego `127.0.0.1` oznacza sam kontener, a nie komputer. Pełny Compose ustawia poprawne nazwy w jednej sieci.
 
 ### Cart Service
 
@@ -108,7 +108,7 @@ PRODUCT_SERVICE_URL=http://localhost:8083
 INVENTORY_SERVICE_URL=http://localhost:8084
 ```
 
-Bez nadpisań adresy zależności pochodzą z Consula. Manifesty produkcyjne nie ustawiają tych nadpisań. Nie dodano fałszywych produktów do serwisu: cena zawsze musi przyjść z prawdziwego Product albo z atrapy wyłącznie podczas testu.
+Bez nadpisań adresy zależności pochodzą z Consula. Manifesty Kubernetes nie ustawiają tych nadpisań. Cena pochodzi z Product; atrapy katalogu są używane wyłącznie w testach.
 
 ## 3. Testy pytest
 
@@ -143,7 +143,7 @@ Domyślnie testy wskazują `redis://127.0.0.1:6379/15`, więc przy lokalnym Redi
 
 Alembic przechowuje wersję w tabeli `alembic_version`. Kolejne zmiany twórz poleceniem `alembic revision --autogenerate -m 'opis'`, przejrzyj wygenerowany kod, a następnie wykonaj `alembic upgrade head`.
 
-Jeżeli wcześniej uruchomiłaś wersję Java i masz bazę z tabelami Flyway, **nie stosuj automatycznie tej pierwszej migracji do istniejących tabel**. Zachowaj dane i uzgodnij migrację. Schematy są podobne, ale oznaczenie istniejącej bazy przez `alembic stamp 0001` jest poprawne dopiero po sprawdzeniu zgodności tabel i ograniczeń. Najprostszy pierwszy start wersji Python to nowa, pusta baza. Nie usuwamy starych danych automatycznie.
+Pierwsza migracja zakłada pustą bazę. W przypadku istniejącego schematu, np. zarządzanego wcześniej przez Flyway, wymagane jest sprawdzenie zgodności tabel i ograniczeń przed użyciem `alembic stamp 0001`. Migracja nie usuwa automatycznie wcześniejszych danych.
 
 W Compose migracja jest osobnym jednorazowym kontenerem. W Kubernetesie uruchom ją jako Job **przed** rolloutem aplikacji. Nie uruchamiaj migracji równolegle w każdej replice.
 
@@ -155,7 +155,7 @@ W Cart ustaw `productId` istniejącego produktu. Lokalne nagłówki w kolekcjach
 
 ## 6. Kubernetes / Rancher Desktop
 
-Wspólna infrastruktura, sekrety i zabezpieczenia klastra należą do uzgodnień z architektem. W `deploy/k8s/` są manifesty Twoich aplikacji i migracji, nie całego sklepu.
+Wspólna infrastruktura, sekrety i zabezpieczenia klastra należą do uzgodnień z architektem. Katalog `deploy/k8s/` zawiera manifesty User, Cart i migracji bazy. Pozostałe komponenty sklepu mają osobną konfigurację.
 
 1. Zbuduj obrazy `user-service:0.1.0` i `cart-service:0.1.0` z katalogów usług i udostępnij je silnikowi Rancher Desktop lub rejestrowi zespołu.
 2. W tym samym namespace zapewnij `user-postgres:5432` (baza `user_db`, użytkownik `user_service`), Redis i `consul:8500`. Dane baz wymagają trwałych wolumenów.
