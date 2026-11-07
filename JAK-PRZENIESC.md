@@ -15,7 +15,7 @@ Paczka `paczki/user-cart-do-wspolnego-repo.zip` zawiera tylko `services/user-ser
 7. Zapisz commit: `Dodanie User i Cart Service w Pythonie`.
 8. Utwórz Pull Request: **base: develop**, **compare: feature/user-cart**. Poproś Michała o przegląd. Połączenie PR powinno odbyć się zgodnie z zasadami zespołu.
 
-Główne README i CODEOWNERS pozostają w wersji zespołu. Propozycje aktualizacji technologii, właścicieli i infrastruktury są w `services/user-service/docs/USTALENIA-Z-ARCHITEKTEM.md`.
+Główne README i CODEOWNERS pozostają w wersji zespołu. Zmiany wspólnej konfiguracji należy uzgodnić z Michałem.
 
 ## Opis Pull Request do skopiowania
 
@@ -40,7 +40,7 @@ Dodatkowo: 49 testów pytest, budowanie obu obrazów i rejestracja w Consulu. Pr
 
 ## Do uzgodnienia
 
-Wpisy technologii i właścicieli w głównym README/CODEOWNERS, nazwy baz i sekretów, NetworkPolicy oraz kontrakty Auth/Product/Inventory/Order. Propozycje w services/user-service/docs/USTALENIA-Z-ARCHITEKTEM.md.
+Wpisy technologii i właścicieli w głównym README/CODEOWNERS, nazwy baz i sekretów, NetworkPolicy oraz kontrakty Auth/Product/Inventory/Order.
 ```
 
 ## Lokalne uruchomienie po pobraniu wspólnego repo
